@@ -1,4 +1,7 @@
 // Vercel Serverless Function to proxy image upload to Catbox.moe
+import FormData from 'form-data';
+import fetch from 'node-fetch';
+
 export default async function handler(req, res) {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,34 +27,40 @@ export default async function handler(req, res) {
         const buffer = Buffer.from(image, 'base64');
         
         // Create FormData for Catbox
-        const FormData = require('form-data');
         const form = new FormData();
         form.append('reqtype', 'fileupload');
         form.append('fileToUpload', buffer, {
             filename: 'photo.png',
-            contentType: 'image/png'
+            contentType: 'image/png',
+            knownLength: buffer.length
         });
         
         // Upload to Catbox via server (bypass CORS)
         const response = await fetch('https://catbox.moe/user/api.php', {
             method: 'POST',
             body: form,
-            headers: form.getHeaders()
+            headers: {
+                ...form.getHeaders(),
+                'User-Agent': 'SGUET-Photobooth/1.0'
+            }
         });
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Catbox error:', response.status, errorText);
             throw new Error(`Catbox returned ${response.status}`);
         }
         
         const imageUrl = await response.text();
         
-        if (!imageUrl || !imageUrl.startsWith('https://')) {
+        if (!imageUrl || !imageUrl.trim().startsWith('https://')) {
+            console.error('Invalid Catbox response:', imageUrl);
             throw new Error('Invalid response from Catbox');
         }
         
         return res.status(200).json({
             success: true,
-            url: imageUrl
+            url: imageUrl.trim()
         });
         
     } catch (error) {
