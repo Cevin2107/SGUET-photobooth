@@ -203,17 +203,11 @@
             }
 
             try {
-                // Test if image is accessible
-                const response = await fetch(imageUrl, { method: 'HEAD' });
-                
-                if (!response.ok) {
-                    throw new Error('Image not found');
-                }
-
-                // Display image
+                // Display image directly without fetch check (avoid CORS issues)
                 contentDiv.innerHTML = `
                     <div class="image-container">
-                        <img src="${imageUrl}" alt="SGUET Photo" id="photoImage">
+                        <img src="${imageUrl}" alt="SGUET Photo" id="photoImage" crossorigin="anonymous" 
+                             onerror="handleImageError()">
                     </div>
                     <button class="download-btn" onclick="downloadImage()">
                         <i class="fas fa-download"></i>
@@ -236,31 +230,49 @@
             }
         }
 
+        // Handle image load error
+        function handleImageError() {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = `
+                <div class="error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Không thể tải ảnh!</p>
+                    <p style="font-size: 0.85rem; margin-top: 10px;">Link ảnh không hợp lệ hoặc đã hết hạn.</p>
+                </div>
+            `;
+        }
+
         // Download image
         async function downloadImage() {
             const imageUrl = getImageUrl();
+            const btn = document.querySelector('.download-btn');
             
             try {
-                // Create a link and trigger download
+                // Method 1: Try direct download first (works for same-origin)
                 const link = document.createElement('a');
                 link.href = imageUrl;
                 link.download = `SGUET-Photo-${Date.now()}.jpg`;
+                link.target = '_blank';
                 
-                // For cross-origin images, we need to fetch and convert to blob
-                const response = await fetch(imageUrl);
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                
-                link.href = blobUrl;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // Clean up
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                // Try to download via blob (better for cross-origin)
+                try {
+                    const response = await fetch(imageUrl, { mode: 'cors' });
+                    const blob = await response.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    link.href = blobUrl;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                } catch (fetchError) {
+                    // Fallback: Open in new tab if fetch fails
+                    console.log('Fetch failed, opening in new tab:', fetchError);
+                    window.open(imageUrl, '_blank');
+                }
                 
                 // Show success message
-                const btn = document.querySelector('.download-btn');
                 const originalHTML = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-check"></i> Đã Tải Xuống!';
                 btn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
@@ -272,7 +284,14 @@
                 
             } catch (error) {
                 console.error('Download error:', error);
-                alert('Không thể tải ảnh. Vui lòng thử lại!');
+                
+                // Ultimate fallback: Just open the image
+                window.open(imageUrl, '_blank');
+                
+                btn.innerHTML = '<i class="fas fa-external-link"></i> Đã Mở Ảnh!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-download"></i> Tải Ảnh Về Máy';
+                }, 2000);
             }
         }
 
