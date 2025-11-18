@@ -97,6 +97,19 @@ const closeQrModal = document.getElementById('closeQrModal');
 const downloadDirectBtn = document.getElementById('downloadDirectBtn');
 const newPhotoBtn = document.getElementById('newPhotoBtn');
 
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+                console.log('Service Worker đã được đăng ký:', registration.scope);
+            })
+            .catch(error => {
+                console.log('Lỗi khi đăng ký Service Worker:', error);
+            });
+    });
+}
+
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
     initTimerButtons();
