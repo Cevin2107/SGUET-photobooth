@@ -20,7 +20,7 @@ const FILTERS = {
 
 // Frame positions - sẽ được import từ tool detector
 let FRAME_POSITIONS = {
-  "Frames/Frame1.png": {
+  "/Frames/Frame1.png": {
     "photoSize": {
       "width": 789,
       "height": 584
@@ -43,7 +43,7 @@ let FRAME_POSITIONS = {
       }
     ]
   },
-  "Frames/Frame2.png": {
+  "/Frames/Frame2.png": {
     "photoSize": {
       "width": 782,
       "height": 576
@@ -392,8 +392,8 @@ let currentPreviewFrame = null;
 function loadFrames() {
     // Load frames từ folder Frames
     const frames = [
-        { name: 'Frame 1', path: 'Frames/Frame1.png' },
-        { name: 'Frame 2', path: 'Frames/Frame2.png' }
+        { name: 'Frame 1', path: '/Frames/Frame1.png' },
+        { name: 'Frame 2', path: '/Frames/Frame2.png' }
     ];
     
     frameGrid.innerHTML = '';
