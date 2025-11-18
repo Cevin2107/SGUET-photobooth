@@ -627,8 +627,9 @@ async function showQRCode() {
                     correctLevel: QRCode.CorrectLevel.M
                 });
                 
-                // Add download instructions
-                qrcodeContainer.innerHTML += `
+                // Add download instructions (use insertAdjacentHTML to avoid overwriting QR)
+                const successMsg = document.createElement('div');
+                successMsg.innerHTML = `
                     <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
                         ✅ Quét QR để xem và tải ảnh
                     </p>
@@ -636,6 +637,7 @@ async function showQRCode() {
                         📱 Link vĩnh viễn, hoạt động mọi thiết bị
                     </p>
                 `;
+                qrcodeContainer.appendChild(successMsg);
             }, 50);
         } else {
             throw new Error(data.error || 'Upload failed');
