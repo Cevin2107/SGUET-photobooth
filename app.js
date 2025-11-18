@@ -595,36 +595,33 @@ async function showQRCode() {
     const qrcodeContainer = document.getElementById('qrcode');
     qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;"><i class="fas fa-spinner fa-spin"></i> Đang upload ảnh...</p>';
     
-    // Upload image to Telegraph (free, fast, no limits)
+    // Upload image to Imgur (free, reliable, 10MB limit)
     try {
-        // Convert base64 to blob
+        // Get base64 data without prefix
         const base64Data = STATE.finalImage.split(',')[1];
-        const binaryData = atob(base64Data);
-        const arrayBuffer = new ArrayBuffer(binaryData.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < binaryData.length; i++) {
-            uint8Array[i] = binaryData.charCodeAt(i);
-        }
-        const blob = new Blob([uint8Array], { type: 'image/png' });
         
-        // Upload to Telegraph
-        const formData = new FormData();
-        formData.append('file', blob, 'photo.png');
-        
-        const response = await fetch('https://telegra.ph/upload', {
+        // Upload to Imgur using public client ID
+        const response = await fetch('https://api.imgur.com/3/image', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Authorization': 'Client-ID 546c25a59c58ad7',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: base64Data,
+                type: 'base64'
+            })
         });
         
         if (!response.ok) {
-            throw new Error('Telegraph upload failed: ' + response.status);
+            throw new Error('Imgur upload failed: ' + response.status);
         }
         
         const data = await response.json();
         
-        if (data && data[0] && data[0].src) {
-            const imageUrl = 'https://telegra.ph' + data[0].src;
-            console.log('Image uploaded to Telegraph:', imageUrl);
+        if (data.success && data.data && data.data.link) {
+            const imageUrl = data.data.link;
+            console.log('Image uploaded to Imgur:', imageUrl);
             
             // Generate QR with public URL
             qrcodeContainer.innerHTML = '';
@@ -644,12 +641,12 @@ async function showQRCode() {
                         ✅ Quét QR để xem và tải ảnh
                     </p>
                     <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
-                        📱 Hoạt động trên mọi thiết bị
+                        📱 Link vĩnh viễn trên Imgur
                     </p>
                 `;
             }, 50);
         } else {
-            throw new Error('Invalid response from Telegraph');
+            throw new Error('Invalid response from Imgur');
         }
         
     } catch (error) {
