@@ -103,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initFilterButtons();
     initEventListeners();
     initPhotoSlotButtons();
+    initUploadButtons();
     loadFramePositions();
     loadFrames();
     updatePhotoCount();
@@ -323,7 +324,14 @@ async function capturePhoto(index) {
     slot.appendChild(img);
     slot.classList.add('filled');
     
-    // Re-add delete and swap buttons
+    // Re-add upload, delete and swap buttons
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'upload-photo-btn';
+    uploadBtn.dataset.index = index;
+    uploadBtn.innerHTML = '<i class="fas fa-upload"></i>';
+    uploadBtn.title = 'Tải ảnh lên';
+    slot.appendChild(uploadBtn);
+    
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-photo-btn';
     deleteBtn.dataset.index = index;
@@ -337,6 +345,18 @@ async function capturePhoto(index) {
     swapBtn.innerHTML = '<i class="fas fa-arrows-rotate"></i>';
     swapBtn.addEventListener('click', () => openSwapModal(index));
     slot.appendChild(swapBtn);
+    
+    const uploadInput = document.createElement('input');
+    uploadInput.type = 'file';
+    uploadInput.className = 'photo-upload-input';
+    uploadInput.dataset.index = index;
+    uploadInput.accept = 'image/*';
+    uploadInput.style.display = 'none';
+    slot.appendChild(uploadInput);
+    
+    // Attach upload events
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', (e) => handlePhotoUpload(e, index));
     
     updatePhotoCount();
     updateButtons();
@@ -353,17 +373,22 @@ function resetPhotos() {
         slot.innerHTML = `
             <i class="fas fa-image"></i>
             <span>Ảnh ${index + 1}</span>
+            <button class="upload-photo-btn" data-index="${index}" title="Tải ảnh lên">
+                <i class="fas fa-upload"></i>
+            </button>
             <button class="delete-photo-btn hidden" data-index="${index}">
                 <i class="fas fa-times"></i>
             </button>
             <button class="swap-photo-btn hidden" data-index="${index}">
                 <i class="fas fa-arrows-rotate"></i>
             </button>
+            <input type="file" class="photo-upload-input" data-index="${index}" accept="image/*" style="display: none;">
         `;
     });
     
     // Re-attach event listeners
     initPhotoSlotButtons();
+    initUploadButtons();
     
     updatePhotoCount();
     updateButtons();
@@ -640,7 +665,7 @@ async function showQRCode() {
                         SGUET cảm ơn bạn đã ghé thăm 💙
                     </p>
                     <p style="color: #666; font-size: 0.8rem; margin-top: 8px;">
-                        📱 Link vĩnh viễn, hoạt động mọi thiết bị
+                        📱 Theo dõi chúng mình tại: https://www.facebook.com/SupportGroupUET
                     </p>
                 `;
                 qrcodeContainer.appendChild(successMsg);
@@ -854,19 +879,28 @@ function deletePhoto(index) {
     slot.innerHTML = `
         <i class="fas fa-image"></i>
         <span>Ảnh ${index + 1}</span>
+        <button class="upload-photo-btn" data-index="${index}" title="Tải ảnh lên">
+            <i class="fas fa-upload"></i>
+        </button>
         <button class="delete-photo-btn hidden" data-index="${index}">
             <i class="fas fa-times"></i>
         </button>
         <button class="swap-photo-btn hidden" data-index="${index}">
             <i class="fas fa-arrows-rotate"></i>
         </button>
+        <input type="file" class="photo-upload-input" data-index="${index}" accept="image/*" style="display: none;">
     `;
     
     // Re-attach event listeners for this slot
     const deleteBtn = slot.querySelector('.delete-photo-btn');
     const swapBtn = slot.querySelector('.swap-photo-btn');
+    const uploadBtn = slot.querySelector('.upload-photo-btn');
+    const uploadInput = slot.querySelector('.photo-upload-input');
+    
     deleteBtn.addEventListener('click', () => deletePhoto(index));
     swapBtn.addEventListener('click', () => openSwapModal(index));
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', (e) => handlePhotoUpload(e, index));
     
     updatePhotoCount();
     updateButtons();
@@ -986,4 +1020,120 @@ function updateButtons() {
     } else {
         resetBtn.classList.add('hidden');
     }
+}
+
+// ===== UPLOAD PHOTO =====
+function initUploadButtons() {
+    document.querySelectorAll('.upload-photo-btn').forEach(btn => {
+        const index = parseInt(btn.dataset.index);
+        const input = document.querySelector(`.photo-upload-input[data-index="${index}"]`);
+        
+        btn.addEventListener('click', () => input.click());
+        input.addEventListener('change', (e) => handlePhotoUpload(e, index));
+    });
+}
+
+async function handlePhotoUpload(event, index) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Vui lòng chọn file ảnh!');
+        return;
+    }
+    
+    try {
+        // Read file as data URL
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            const imageData = e.target.result;
+            
+            // Load image to get dimensions
+            const img = await loadImageSafe(imageData);
+            
+            // Get frame config to determine target size
+            const config = STATE.selectedFrame ? FRAME_POSITIONS[STATE.selectedFrame] : null;
+            const targetSize = config ? config.photoSize : { width: 789, height: 584 };
+            
+            // Create canvas to crop/resize image
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = targetSize.width;
+            cropCanvas.height = targetSize.height;
+            const cropCtx = cropCanvas.getContext('2d');
+            
+            // Calculate scaling to cover (like object-fit: cover)
+            const scaleX = targetSize.width / img.width;
+            const scaleY = targetSize.height / img.height;
+            const scale = Math.max(scaleX, scaleY);
+            
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            
+            // Center crop
+            const offsetX = (scaledWidth - targetSize.width) / 2;
+            const offsetY = (scaledHeight - targetSize.height) / 2;
+            
+            cropCtx.drawImage(img, -offsetX, -offsetY, scaledWidth, scaledHeight);
+            
+            // Save cropped image
+            const croppedData = cropCanvas.toDataURL('image/png');
+            STATE.photos[index] = croppedData;
+            
+            // Update UI
+            const slot = document.querySelector(`.photo-slot[data-index="${index}"]`);
+            const imgElement = document.createElement('img');
+            imgElement.src = croppedData;
+            slot.innerHTML = '';
+            slot.appendChild(imgElement);
+            slot.classList.add('filled');
+            
+            // Re-add buttons
+            const uploadBtn = document.createElement('button');
+            uploadBtn.className = 'upload-photo-btn';
+            uploadBtn.dataset.index = index;
+            uploadBtn.innerHTML = '<i class="fas fa-upload"></i>';
+            uploadBtn.title = 'Tải ảnh lên';
+            slot.appendChild(uploadBtn);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-photo-btn';
+            deleteBtn.dataset.index = index;
+            deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+            slot.appendChild(deleteBtn);
+            
+            const swapBtn = document.createElement('button');
+            swapBtn.className = 'swap-photo-btn';
+            swapBtn.dataset.index = index;
+            swapBtn.innerHTML = '<i class="fas fa-arrows-rotate"></i>';
+            slot.appendChild(swapBtn);
+            
+            const uploadInput = document.createElement('input');
+            uploadInput.type = 'file';
+            uploadInput.className = 'photo-upload-input';
+            uploadInput.dataset.index = index;
+            uploadInput.accept = 'image/*';
+            uploadInput.style.display = 'none';
+            slot.appendChild(uploadInput);
+            
+            // Re-attach event listeners
+            uploadBtn.addEventListener('click', () => uploadInput.click());
+            uploadInput.addEventListener('change', (e) => handlePhotoUpload(e, index));
+            deleteBtn.addEventListener('click', () => deletePhoto(index));
+            swapBtn.addEventListener('click', () => openSwapModal(index));
+            
+            updatePhotoCount();
+            updateButtons();
+        };
+        
+        reader.readAsDataURL(file);
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Lỗi khi tải ảnh: ' + error.message);
+    }
+    
+    // Reset input
+    event.target.value = '';
 }
