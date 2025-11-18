@@ -20,17 +20,24 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No image data provided' });
         }
         
-        // Upload to ImgBB
-        const formData = new URLSearchParams();
-        formData.append('image', image);
+        // Upload to ImgBB using fetch with form-urlencoded
+        const params = new URLSearchParams();
+        params.append('key', 'd36eb6591370ae7f9089d85875e56b22');
+        params.append('image', image);
         
-        const response = await fetch('https://api.imgbb.com/1/upload?key=d36eb6591370ae7f9089d85875e56b22', {
+        const response = await fetch('https://api.imgbb.com/1/upload', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: formData
+            body: params.toString()
         });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('ImgBB error:', response.status, errorText);
+            throw new Error(`ImgBB returned ${response.status}`);
+        }
         
         const data = await response.json();
         
@@ -41,14 +48,14 @@ export default async function handler(req, res) {
                 delete_url: data.data.delete_url
             });
         } else {
-            throw new Error('Upload failed');
+            throw new Error('Invalid response from ImgBB');
         }
         
     } catch (error) {
         console.error('Upload error:', error);
         return res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || 'Upload failed'
         });
     }
 }
