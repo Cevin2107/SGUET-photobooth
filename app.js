@@ -595,64 +595,89 @@ async function showQRCode() {
     const qrcodeContainer = document.getElementById('qrcode');
     qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;"><i class="fas fa-spinner fa-spin"></i> Đang upload ảnh...</p>';
     
-    // Upload image to Imgur (free, reliable, 10MB limit)
+    // Try multiple upload services
+    let imageUrl = null;
+    
+    // Method 1: Try ImgBB API
     try {
-        // Get base64 data without prefix
         const base64Data = STATE.finalImage.split(',')[1];
         
-        // Upload to Imgur using public client ID
-        const response = await fetch('https://api.imgur.com/3/image', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Client-ID 546c25a59c58ad7',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                image: base64Data,
-                type: 'base64'
-            })
-        });
+        const formData = new FormData();
+        formData.append('image', base64Data);
         
-        if (!response.ok) {
-            throw new Error('Imgur upload failed: ' + response.status);
-        }
+        const response = await fetch('https://api.imgbb.com/1/upload?key=d36eb6591370ae7f9089d85875e56b22', {
+            method: 'POST',
+            body: formData
+        });
         
         const data = await response.json();
         
-        if (data.success && data.data && data.data.link) {
-            const imageUrl = data.data.link;
-            console.log('Image uploaded to Imgur:', imageUrl);
-            
-            // Generate QR with public URL
-            qrcodeContainer.innerHTML = '';
-            setTimeout(() => {
-                new QRCode(qrcodeContainer, {
-                    text: imageUrl,
-                    width: 256,
-                    height: 256,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-                
-                // Add download instructions
-                qrcodeContainer.innerHTML += `
-                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
-                        ✅ Quét QR để xem và tải ảnh
-                    </p>
-                    <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
-                        📱 Link vĩnh viễn trên Imgur
-                    </p>
-                `;
-            }, 50);
-        } else {
-            throw new Error('Invalid response from Imgur');
+        if (data.success && data.data && data.data.url) {
+            imageUrl = data.data.url;
+            console.log('Image uploaded to ImgBB:', imageUrl);
         }
-        
     } catch (error) {
-        console.error('Upload error:', error);
-        
-        // Fallback: Show download button
+        console.warn('ImgBB upload failed:', error);
+    }
+    
+    // Method 2: Fallback to Postimages if ImgBB failed
+    if (!imageUrl) {
+        try {
+            const base64Data = STATE.finalImage.split(',')[1];
+            const binaryData = atob(base64Data);
+            const arrayBuffer = new ArrayBuffer(binaryData.length);
+            const uint8Array = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < binaryData.length; i++) {
+                uint8Array[i] = binaryData.charCodeAt(i);
+            }
+            const blob = new Blob([uint8Array], { type: 'image/png' });
+            
+            const formData = new FormData();
+            formData.append('upload', blob, 'photo.png');
+            formData.append('action', 'upload');
+            formData.append('adult', 'no');
+            
+            const response = await fetch('https://postimages.org/json/rr', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'OK' && data.url) {
+                imageUrl = data.url;
+                console.log('Image uploaded to Postimages:', imageUrl);
+            }
+        } catch (error) {
+            console.warn('Postimages upload failed:', error);
+        }
+    }
+    
+    // If upload successful, generate QR code
+    if (imageUrl) {
+        qrcodeContainer.innerHTML = '';
+        setTimeout(() => {
+            new QRCode(qrcodeContainer, {
+                text: imageUrl,
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            
+            // Add download instructions
+            qrcodeContainer.innerHTML += `
+                <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
+                    ✅ Quét QR để xem và tải ảnh
+                </p>
+                <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
+                    📱 Link vĩnh viễn, hoạt động mọi thiết bị
+                </p>
+            `;
+        }, 50);
+    } else {
+        // All upload methods failed - show download button
         qrcodeContainer.innerHTML = `
             <div style="text-align: center;">
                 <p style="color: #ff9800; font-weight: 600; margin-bottom: 10px;">
