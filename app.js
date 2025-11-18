@@ -615,13 +615,16 @@ async function showQRCode() {
             const imageUrl = data.url;
             console.log('Image uploaded successfully:', imageUrl);
             
-            // Generate QR with public URL
+            // Create preview page URL
+            const previewUrl = `${window.location.origin}/preview.html?img=${encodeURIComponent(imageUrl)}`;
+            
+            // Generate QR with preview page URL
             qrcodeContainer.innerHTML = '';
             setTimeout(() => {
                 new QRCode(qrcodeContainer, {
-                    text: imageUrl,
-                    width: 256,
-                    height: 256,
+                    text: previewUrl,
+                    width: 200,
+                    height: 200,
                     colorDark: '#000000',
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.M
@@ -630,10 +633,13 @@ async function showQRCode() {
                 // Add download instructions (use insertAdjacentHTML to avoid overwriting QR)
                 const successMsg = document.createElement('div');
                 successMsg.innerHTML = `
-                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
+                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 15px; font-weight: 600;">
                         ✅ Quét QR để xem và tải ảnh
                     </p>
-                    <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
+                    <p style="color: #2196F3; font-size: 1rem; margin-top: 12px; font-weight: 600;">
+                        SGUET cảm ơn bạn đã ghé thăm 💙
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem; margin-top: 8px;">
                         📱 Link vĩnh viễn, hoạt động mọi thiết bị
                     </p>
                 `;
