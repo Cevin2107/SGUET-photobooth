@@ -2,6 +2,7 @@ const CACHE_NAME = 'sguet-photobooth-v2';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/preview.html',
   '/style.css',
   '/app.js',
   '/SGUET.jpg',
@@ -25,7 +26,10 @@ self.addEventListener('install', (event) => {
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/')) {
+  // Skip caching for API calls and dev tools
+  if (event.request.url.includes('/api/') || 
+      event.request.url.includes('detector.html') ||
+      event.request.url.includes('frame-positions-sample.js')) {
     return;
   }
   
