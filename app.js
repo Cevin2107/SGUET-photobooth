@@ -593,9 +593,9 @@ async function showQRCode() {
     
     // Generate QR code
     const qrcodeContainer = document.getElementById('qrcode');
-    qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;">⏳ Đang upload ảnh...</p>';
+    qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;"><i class="fas fa-spinner fa-spin"></i> Đang upload ảnh...</p>';
     
-    // Upload image to free image hosting
+    // Upload image to Cloudinary (free, fast, reliable)
     try {
         // Convert base64 to blob
         const base64Data = STATE.finalImage.split(',')[1];
@@ -607,59 +607,65 @@ async function showQRCode() {
         }
         const blob = new Blob([uint8Array], { type: 'image/png' });
         
-        // Upload to file.io (anonymous, free, 14-day expiration)
+        // Upload to Cloudinary unsigned preset (demo account)
         const formData = new FormData();
-        formData.append('file', blob, 'SGUET-Photobooth.png');
+        formData.append('file', blob);
+        formData.append('upload_preset', 'ml_default'); // Cloudinary demo preset
+        formData.append('cloud_name', 'demo'); // Demo cloud
         
-        const response = await fetch('https://file.io', {
+        const response = await fetch('https://api.cloudinary.com/v1_1/demo/image/upload', {
             method: 'POST',
             body: formData
         });
         
-        const data = await response.json();
-        
-        if (data.success && data.link) {
-            const imageUrl = data.link;
-            console.log('Image uploaded:', imageUrl);
-            
-            // Generate QR with public URL
-            qrcodeContainer.innerHTML = '';
-            setTimeout(() => {
-                new QRCode(qrcodeContainer, {
-                    text: imageUrl,
-                    width: 256,
-                    height: 256,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-                
-                // Add download instructions
-                qrcodeContainer.innerHTML += `
-                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
-                        ✅ Quét QR để tải ảnh về điện thoại
-                    </p>
-                    <p style="color: #ff9800; font-size: 0.8rem; margin-top: 5px;">
-                        ⚠️ Link có hiệu lực 14 ngày
-                    </p>
-                `;
-            }, 50);
-        } else {
-            throw new Error('Upload failed');
+        if (!response.ok) {
+            throw new Error('Upload failed: ' + response.status);
         }
+        
+        const data = await response.json();
+        const imageUrl = data.secure_url;
+        
+        console.log('Image uploaded to Cloudinary:', imageUrl);
+        
+        // Generate QR with public URL
+        qrcodeContainer.innerHTML = '';
+        setTimeout(() => {
+            new QRCode(qrcodeContainer, {
+                text: imageUrl,
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            
+            // Add download instructions
+            qrcodeContainer.innerHTML += `
+                <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
+                    ✅ Quét QR để tải ảnh về điện thoại
+                </p>
+                <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
+                    📱 Hoạt động trên mọi mạng 4G/5G/WiFi
+                </p>
+            `;
+        }, 50);
         
     } catch (error) {
         console.error('Upload error:', error);
-        alert('Không thể upload ảnh lên server!\n\nVui lòng dùng nút "Tải về máy tính" để lưu ảnh.');
         
-        // Show download button instead
+        // Fallback: Show download button
         qrcodeContainer.innerHTML = `
-            <p style="color: #ff4444; font-weight: 600; margin-bottom: 15px;">
-                ❌ Không thể tạo QR code
-            </p>
-            <button onclick="document.getElementById('downloadDirectBtn').click()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
-                <i class="fas fa-download"></i> Tải về máy tính
-            </button>
+            <div style="text-align: center;">
+                <p style="color: #ff9800; font-weight: 600; margin-bottom: 15px;">
+                    ⚠️ Không thể upload ảnh lên server
+                </p>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
+                    Vui lòng tải ảnh về máy tính
+                </p>
+                <button onclick="document.getElementById('downloadDirectBtn').click()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                    <i class="fas fa-download"></i> Tải về máy tính
+                </button>
+            </div>
         `;
     }
 }
