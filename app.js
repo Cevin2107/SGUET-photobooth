@@ -1,14 +1,14 @@
 // ===== STATE & CONFIG =====
 const STATE = {
     stream: null,
-    photos: [null, null, null, null], // Giữ 4 slots để backup, nhưng chỉ dùng 3
+    photos: [null, null, null],
     currentFilter: 'none',
     countdownTime: 3,
     isCapturing: false,
-    isFlipped: true, // Start with flipped camera
+    isFlipped: true,
     selectedFrame: null,
     finalImage: null,
-    selectedDeviceId: null // Store selected camera device ID
+    selectedDeviceId: null
 };
 
 const FILTERS = {
@@ -18,7 +18,6 @@ const FILTERS = {
     warm: 'sepia(30%) saturate(1.4) brightness(1.1)'
 };
 
-// Frame positions - sẽ được import từ tool detector
 let FRAME_POSITIONS = {
   "./Frames/Frame1.png": {
     "photoSize": {
@@ -420,15 +419,12 @@ function updatePhotoCount() {
 
 // ===== FRAMES =====
 function loadFramePositions() {
-    // Frame positions đã được định nghĩa ở đầu file
-    // Có thể load thêm từ file external nếu cần
     console.log('Loaded frame positions:', Object.keys(FRAME_POSITIONS));
 }
 
 let currentPreviewFrame = null;
 
 function loadFrames() {
-    // Load frames từ folder Frames
     const frames = [
         { name: 'Frame 1', path: './Frames/Frame1.png' },
         { name: 'Frame 2', path: './Frames/Frame2.png' }
@@ -476,21 +472,12 @@ async function generateFramePreview(framePath) {
 }
 
 async function createFramedImage(framePath) {
-    // Get positions for this frame
-    console.log('Looking for frame config:', framePath);
-    console.log('Available configs:', Object.keys(FRAME_POSITIONS));
-    
     const config = FRAME_POSITIONS[framePath];
     if (!config) {
         throw new Error('Frame chưa có cấu hình vị trí! Path: ' + framePath);
     }
     
-    console.log('Using config:', config);
-    
-    // Load frame image
     const frameImg = await loadImageSafe(framePath);
-    
-    // Load photos
     const photosToUse = STATE.photos.filter(p => p !== null).slice(0, 3);
     if (photosToUse.length === 0) {
         throw new Error('Không có ảnh nào!');
@@ -500,54 +487,49 @@ async function createFramedImage(framePath) {
         photosToUse.map(photoData => loadImageSafe(photoData))
     );
     
-    // Create canvas
     const canvas = document.createElement('canvas');
-    canvas.width = frameImg.width;
-    canvas.height = frameImg.height;
+    const maxWidth = 1200;
+    const scale = frameImg.width > maxWidth ? maxWidth / frameImg.width : 1;
+    
+    canvas.width = frameImg.width * scale;
+    canvas.height = frameImg.height * scale;
     const ctx = canvas.getContext('2d');
     
-    // Draw white background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw photos (behind frame)
     photoImages.forEach((photoImg, index) => {
         if (index >= config.positions.length) return;
         
         const pos = config.positions[index];
         const size = config.photoSize;
         
-        // Calculate x position
-        let x = pos.x;
+        let x = pos.x * scale;
         if (pos.centerX) {
-            x = (canvas.width - size.width) / 2;
+            x = (canvas.width - size.width * scale) / 2;
         }
         
-        // Calculate scaling to cover the slot (like object-fit: cover)
-        const scaleX = size.width / photoImg.width;
-        const scaleY = size.height / photoImg.height;
-        const scale = Math.max(scaleX, scaleY);
+        const scaleX = (size.width * scale) / photoImg.width;
+        const scaleY = (size.height * scale) / photoImg.height;
+        const imgScale = Math.max(scaleX, scaleY);
         
-        const scaledWidth = photoImg.width * scale;
-        const scaledHeight = photoImg.height * scale;
+        const scaledWidth = photoImg.width * imgScale;
+        const scaledHeight = photoImg.height * imgScale;
         
-        // Center crop
-        const offsetX = (scaledWidth - size.width) / 2;
-        const offsetY = (scaledHeight - size.height) / 2;
+        const offsetX = (scaledWidth - size.width * scale) / 2;
+        const offsetY = (scaledHeight - size.height * scale) / 2;
         
         ctx.save();
         ctx.beginPath();
-        ctx.rect(x, pos.y, size.width, size.height);
+        ctx.rect(x, pos.y * scale, size.width * scale, size.height * scale);
         ctx.clip();
-        ctx.drawImage(photoImg, x - offsetX, pos.y - offsetY, scaledWidth, scaledHeight);
+        ctx.drawImage(photoImg, x - offsetX, pos.y * scale - offsetY, scaledWidth, scaledHeight);
         ctx.restore();
     });
     
-    // Draw frame on top
-    ctx.drawImage(frameImg, 0, 0);
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
     
-    // Return as JPEG with compression to reduce size
-    return canvas.toDataURL('image/jpeg', 0.85);
+    return canvas.toDataURL('image/jpeg', 0.75);
 }
 
 function openFrameModal() {
@@ -615,6 +597,26 @@ function loadImageSafe(src) {
 }
 
 // ===== QR CODE =====
+async function uploadWithTimeout(url, options, timeout = 10000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error('Upload quá lâu (>10s)');
+        }
+        throw error;
+    }
+}
+
 async function showQRCode() {
     if (!STATE.finalImage) {
         alert('Không có ảnh để hiển thị!');
@@ -623,40 +625,29 @@ async function showQRCode() {
     
     qrModal.classList.add('active');
     
-    // Show preview image
     const previewImg = document.getElementById('finalImagePreview');
     if (previewImg) {
         previewImg.src = STATE.finalImage;
     }
     
-    // Generate QR code
     const qrcodeContainer = document.getElementById('qrcode');
     qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;"><i class="fas fa-spinner fa-spin"></i> Đang upload ảnh...</p>';
     
-    // Upload via Vercel serverless function (bypass CORS)
     try {
         const base64Data = STATE.finalImage.split(',')[1];
         
-        const response = await fetch('/api/upload', {
+        const response = await uploadWithTimeout('/api/upload', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                image: base64Data
-            })
-        });
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Data })
+        }, 10000);
         
         const data = await response.json();
         
         if (data.success && data.url) {
             const imageUrl = data.url;
-            console.log('Image uploaded successfully:', imageUrl);
-            
-            // Create preview page URL
             const previewUrl = `${window.location.origin}/preview.html?img=${encodeURIComponent(imageUrl)}`;
             
-            // Generate QR with preview page URL
             qrcodeContainer.innerHTML = '';
             setTimeout(() => {
                 new QRCode(qrcodeContainer, {
@@ -668,7 +659,6 @@ async function showQRCode() {
                     correctLevel: QRCode.CorrectLevel.M
                 });
                 
-                // Add download instructions (use insertAdjacentHTML to avoid overwriting QR)
                 const successMsg = document.createElement('div');
                 successMsg.innerHTML = `
                     <p style="color: #4caf50; font-size: 0.9rem; margin-top: 15px; font-weight: 600;">
@@ -678,30 +668,32 @@ async function showQRCode() {
                         SGUET cảm ơn bạn đã ghé thăm 💙
                     </p>
                     <p style="color: #666; font-size: 0.8rem; margin-top: 8px;">
-                        📱 Theo dõi chúng mình tại: https://www.facebook.com/SupportGroupUET
+                        📱 Theo dõi: facebook.com/SupportGroupUET
                     </p>
                 `;
                 qrcodeContainer.appendChild(successMsg);
             }, 50);
         } else {
-            throw new Error(data.error || 'Upload failed');
+            throw new Error(data.error || 'Upload thất bại');
         }
         
     } catch (error) {
         console.error('Upload error:', error);
         
-        // Show download button as fallback
         qrcodeContainer.innerHTML = `
             <div style="text-align: center;">
                 <p style="color: #ff9800; font-weight: 600; margin-bottom: 10px;">
-                    ⚠️ Không thể upload ảnh
+                    ⚠️ ${error.message || 'Không thể upload'}
                 </p>
                 <p style="color: #666; font-size: 0.85rem; margin-bottom: 15px;">
-                    ${error.message || 'Có thể do mạng yếu'}<br>Vui lòng tải về máy tính.
+                    Mạng có vẻ chậm. Tải về máy tính nhé!
                 </p>
                 <button onclick="document.getElementById('downloadDirectBtn').click()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 1rem;">
                     <i class="fas fa-download"></i> Tải về máy tính
                 </button>
+                <p style="color: #2196F3; font-size: 1rem; margin-top: 15px; font-weight: 600;">
+                    SGUET cảm ơn bạn 💙
+                </p>
             </div>
         `;
     }
