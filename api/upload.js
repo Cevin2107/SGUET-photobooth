@@ -1,4 +1,4 @@
-// Vercel Serverless Function to upload image to ImgBB
+// Vercel Serverless Function to proxy image upload to Catbox.moe
 export default async function handler(req, res) {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,36 +20,39 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No image data provided' });
         }
         
-        // Upload to ImgBB using fetch with form-urlencoded
-        const params = new URLSearchParams();
-        params.append('key', 'd36eb6591370ae7f9089d85875e56b22');
-        params.append('image', image);
+        // Convert base64 to buffer
+        const buffer = Buffer.from(image, 'base64');
         
-        const response = await fetch('https://api.imgbb.com/1/upload', {
+        // Create FormData for Catbox
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('reqtype', 'fileupload');
+        form.append('fileToUpload', buffer, {
+            filename: 'photo.png',
+            contentType: 'image/png'
+        });
+        
+        // Upload to Catbox via server (bypass CORS)
+        const response = await fetch('https://catbox.moe/user/api.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params.toString()
+            body: form,
+            headers: form.getHeaders()
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('ImgBB error:', response.status, errorText);
-            throw new Error(`ImgBB returned ${response.status}`);
+            throw new Error(`Catbox returned ${response.status}`);
         }
         
-        const data = await response.json();
+        const imageUrl = await response.text();
         
-        if (data.success && data.data && data.data.url) {
-            return res.status(200).json({
-                success: true,
-                url: data.data.url,
-                delete_url: data.data.delete_url
-            });
-        } else {
-            throw new Error('Invalid response from ImgBB');
+        if (!imageUrl || !imageUrl.startsWith('https://')) {
+            throw new Error('Invalid response from Catbox');
         }
+        
+        return res.status(200).json({
+            success: true,
+            url: imageUrl
+        });
         
     } catch (error) {
         console.error('Upload error:', error);

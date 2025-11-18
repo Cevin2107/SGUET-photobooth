@@ -595,62 +595,51 @@ async function showQRCode() {
     const qrcodeContainer = document.getElementById('qrcode');
     qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;"><i class="fas fa-spinner fa-spin"></i> Đang upload ảnh...</p>';
     
-    // Upload to Catbox.moe (free, anonymous, no account needed)
+    // Upload via Vercel serverless function (bypass CORS)
     try {
-        // Convert base64 to blob
         const base64Data = STATE.finalImage.split(',')[1];
-        const binaryData = atob(base64Data);
-        const arrayBuffer = new ArrayBuffer(binaryData.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < binaryData.length; i++) {
-            uint8Array[i] = binaryData.charCodeAt(i);
-        }
-        const blob = new Blob([uint8Array], { type: 'image/png' });
         
-        // Upload to Catbox
-        const formData = new FormData();
-        formData.append('reqtype', 'fileupload');
-        formData.append('fileToUpload', blob, 'photo.png');
-        
-        const response = await fetch('https://catbox.moe/user/api.php', {
+        const response = await fetch('/api/upload', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: base64Data
+            })
         });
         
-        if (!response.ok) {
-            throw new Error('Upload failed: ' + response.status);
-        }
+        const data = await response.json();
         
-        const imageUrl = await response.text();
-        
-        if (!imageUrl || !imageUrl.startsWith('https://')) {
-            throw new Error('Invalid response');
-        }
-        
-        console.log('Image uploaded to Catbox:', imageUrl);
-        
-        // Generate QR with public URL
-        qrcodeContainer.innerHTML = '';
-        setTimeout(() => {
-            new QRCode(qrcodeContainer, {
-                text: imageUrl,
-                width: 256,
-                height: 256,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.M
-            });
+        if (data.success && data.url) {
+            const imageUrl = data.url;
+            console.log('Image uploaded successfully:', imageUrl);
             
-            // Add download instructions
-            qrcodeContainer.innerHTML += `
-                <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
-                    ✅ Quét QR để xem và tải ảnh
-                </p>
-                <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
-                    📱 Link vĩnh viễn, hoạt động mọi thiết bị
-                </p>
-            `;
-        }, 50);
+            // Generate QR with public URL
+            qrcodeContainer.innerHTML = '';
+            setTimeout(() => {
+                new QRCode(qrcodeContainer, {
+                    text: imageUrl,
+                    width: 256,
+                    height: 256,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                
+                // Add download instructions
+                qrcodeContainer.innerHTML += `
+                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
+                        ✅ Quét QR để xem và tải ảnh
+                    </p>
+                    <p style="color: #666; font-size: 0.8rem; margin-top: 5px;">
+                        📱 Link vĩnh viễn, hoạt động mọi thiết bị
+                    </p>
+                `;
+            }, 50);
+        } else {
+            throw new Error(data.error || 'Upload failed');
+        }
         
     } catch (error) {
         console.error('Upload error:', error);
