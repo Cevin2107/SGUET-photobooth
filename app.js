@@ -577,7 +577,7 @@ function loadImageSafe(src) {
 }
 
 // ===== QR CODE =====
-function showQRCode() {
+async function showQRCode() {
     if (!STATE.finalImage) {
         alert('Không có ảnh để hiển thị!');
         return;
@@ -591,51 +591,77 @@ function showQRCode() {
         previewImg.src = STATE.finalImage;
     }
     
-    // Store image in localStorage (with compression)
-    const imageId = 'photo_' + Date.now();
-    try {
-        // Clear old photos to free space (keep only last 5)
-        const keys = Object.keys(localStorage).filter(k => k.startsWith('photo_'));
-        if (keys.length >= 5) {
-            keys.sort().slice(0, keys.length - 4).forEach(k => localStorage.removeItem(k));
-        }
-        
-        localStorage.setItem(imageId, STATE.finalImage);
-        console.log('Saved image:', imageId, 'Size:', (STATE.finalImage.length / 1024).toFixed(2) + 'KB');
-    } catch (e) {
-        console.error('localStorage error:', e);
-        alert('Không thể lưu ảnh! Dung lượng localStorage có thể đã đầy.\nBạn vẫn có thể tải trực tiếp về máy tính.');
-        // Don't return, still show QR with current URL
-    }
-    
-    // Create download URL
-    const baseUrl = window.location.href.split('#')[0].split('?')[0];
-    const downloadUrl = baseUrl + '?photo=' + imageId;
-    
-    console.log('Generating QR for:', downloadUrl);
-    
     // Generate QR code
     const qrcodeContainer = document.getElementById('qrcode');
+    qrcodeContainer.innerHTML = '<p style="color: #667eea; font-weight: 600;">⏳ Đang upload ảnh...</p>';
     
-    // Completely clear old QR code and reset
-    qrcodeContainer.innerHTML = '';
-    
-    // Add small delay to ensure clean state
-    setTimeout(() => {
-        try {
-            new QRCode(qrcodeContainer, {
-                text: downloadUrl,
-                width: 256,
-                height: 256,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-        } catch (e) {
-            console.error('QRCode generation error:', e);
-            alert('Lỗi tạo mã QR! Vui lòng thử lại.');
+    // Upload image to free image hosting
+    try {
+        // Convert base64 to blob
+        const base64Data = STATE.finalImage.split(',')[1];
+        const binaryData = atob(base64Data);
+        const arrayBuffer = new ArrayBuffer(binaryData.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < binaryData.length; i++) {
+            uint8Array[i] = binaryData.charCodeAt(i);
         }
-    }, 50);
+        const blob = new Blob([uint8Array], { type: 'image/png' });
+        
+        // Upload to file.io (anonymous, free, 14-day expiration)
+        const formData = new FormData();
+        formData.append('file', blob, 'SGUET-Photobooth.png');
+        
+        const response = await fetch('https://file.io', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.link) {
+            const imageUrl = data.link;
+            console.log('Image uploaded:', imageUrl);
+            
+            // Generate QR with public URL
+            qrcodeContainer.innerHTML = '';
+            setTimeout(() => {
+                new QRCode(qrcodeContainer, {
+                    text: imageUrl,
+                    width: 256,
+                    height: 256,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                
+                // Add download instructions
+                qrcodeContainer.innerHTML += `
+                    <p style="color: #4caf50; font-size: 0.9rem; margin-top: 10px; font-weight: 600;">
+                        ✅ Quét QR để tải ảnh về điện thoại
+                    </p>
+                    <p style="color: #ff9800; font-size: 0.8rem; margin-top: 5px;">
+                        ⚠️ Link có hiệu lực 14 ngày
+                    </p>
+                `;
+            }, 50);
+        } else {
+            throw new Error('Upload failed');
+        }
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Không thể upload ảnh lên server!\n\nVui lòng dùng nút "Tải về máy tính" để lưu ảnh.');
+        
+        // Show download button instead
+        qrcodeContainer.innerHTML = `
+            <p style="color: #ff4444; font-weight: 600; margin-bottom: 15px;">
+                ❌ Không thể tạo QR code
+            </p>
+            <button onclick="document.getElementById('downloadDirectBtn').click()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
+                <i class="fas fa-download"></i> Tải về máy tính
+            </button>
+        `;
+    }
 }
 
 function closeQRModal() {
@@ -791,53 +817,6 @@ async function onCameraChange(event) {
 
 async function refreshCameraList() {
     await populateCameraList();
-}
-
-// ===== DOWNLOAD PAGE HANDLER =====
-// Check if URL has photo query parameter
-const urlParams = new URLSearchParams(window.location.search);
-const photoId = urlParams.get('photo');
-
-if (photoId) {
-    const imageData = localStorage.getItem(photoId);
-    if (imageData) {
-        // Delay to ensure page loads
-        setTimeout(() => {
-            document.body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px;">
-                    <div style="background: white; border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 90%;">
-                        <h1 style="color: #667eea; margin-bottom: 20px; text-align: center;">
-                            <i class="fas fa-camera"></i> SGUET Photobooth
-                        </h1>
-                        <img src="${imageData}" style="max-width: 100%; height: auto; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-bottom: 20px;">
-                        <button onclick="downloadFromPage('${photoId}')" style="width: 100%; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer;">
-                            <i class="fas fa-download"></i> Tải Ảnh Về
-                        </button>
-                    </div>
-                </div>
-                <script>
-                    function downloadFromPage(photoId) {
-                        const imageData = localStorage.getItem(photoId);
-                        if (imageData) {
-                            const link = document.createElement('a');
-                            link.download = 'SGUET-Photobooth-' + Date.now() + '.png';
-                            link.href = imageData;
-                            link.click();
-                        }
-                    }
-                </script>
-            `;
-        }, 100);
-    } else {
-        document.body.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px;">
-                <div style="background: white; border-radius: 20px; padding: 30px; text-align: center;">
-                    <h1 style="color: #ff4444;">❌ Ảnh không tồn tại hoặc đã hết hạn</h1>
-                    <p style="margin-top: 10px; color: #666;">Vui lòng quét lại mã QR hoặc chụp ảnh mới.</p>
-                </div>
-            </div>
-        `;
-    }
 }
 
 // ===== PHOTO MANAGEMENT =====
