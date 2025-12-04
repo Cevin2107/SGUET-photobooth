@@ -176,7 +176,14 @@ function initFilterButtons() {
 
 // ===== EVENT LISTENERS =====
 function initEventListeners() {
-    startBtn.addEventListener('click', startCamera);
+    startBtn.addEventListener('click', async () => {
+        const selectedDeviceId = document.getElementById('cameraSelect')?.value;
+        if (selectedDeviceId) {
+            await startCamera(selectedDeviceId);
+        } else {
+            await startCamera();
+        }
+    });
     captureBtn.addEventListener('click', startAutoCapture);
     singleCaptureBtn.addEventListener('click', captureSinglePhoto);
     resetBtn.addEventListener('click', resetPhotos);
@@ -207,10 +214,14 @@ function initEventListeners() {
 // ===== CAMERA =====
 async function startCamera(deviceId = null) {
     try {
+        // Stop existing stream first
+        stopCamera();
+        
         const constraints = {
             video: { 
                 width: { ideal: 1280 }, 
-                height: { ideal: 960 }
+                height: { ideal: 960 },
+                frameRate: { ideal: 30, max: 30 }
             }
         };
         
@@ -229,9 +240,14 @@ async function startCamera(deviceId = null) {
         // Apply flip by default
         video.classList.add('flipped');
         
-        video.addEventListener('loadedmetadata', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                video.play();
+                resolve();
+            };
         });
         
         startBtn.classList.add('hidden');
@@ -242,7 +258,29 @@ async function startCamera(deviceId = null) {
         
     } catch (error) {
         console.error('Camera error:', error);
-        alert('Không thể truy cập camera! Vui lòng kiểm tra quyền truy cập.');
+        let errorMsg = 'Không thể truy cập camera!\n\n';
+        
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            errorMsg += '❌ Bạn đã từ chối quyền truy cập camera.\n\n';
+            errorMsg += '✅ Giải pháp:\n';
+            errorMsg += '1. Nhấn vào icon 🔒 (hoặc ⓘ) bên trái thanh địa chỉ\n';
+            errorMsg += '2. Chọn "Cho phép" Camera\n';
+            errorMsg += '3. Refresh lại trang (F5)';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            errorMsg += '❌ Không tìm thấy camera.\n\n';
+            errorMsg += '✅ Kiểm tra:\n';
+            errorMsg += '1. Camera có được kết nối?\n';
+            errorMsg += '2. Camera có đang được dùng bởi app khác không?';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            errorMsg += '❌ Camera đang được sử dụng bởi ứng dụng khác.\n\n';
+            errorMsg += '✅ Giải pháp:\n';
+            errorMsg += '1. Đóng các ứng dụng khác đang dùng camera\n';
+            errorMsg += '2. Thử lại';
+        } else {
+            errorMsg += '❌ Lỗi: ' + error.message;
+        }
+        
+        alert(errorMsg);
         return false;
     }
 }
@@ -642,6 +680,16 @@ async function showQRCode() {
             body: JSON.stringify({ image: base64Data })
         }, 10000);
         
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server đang bảo trì hoặc không có kết nối');
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Server lỗi (${response.status})`);
+        }
+        
         const data = await response.json();
         
         if (data.success && data.url) {
@@ -789,7 +837,7 @@ function getCameraDisplay(camera, index) {
     };
 }
 
-async function populateCameraList() {
+async function populateCameraList(autoStart = true) {
     const select = document.getElementById('cameraSelect');
     if (!select) return;
     
@@ -812,7 +860,7 @@ async function populateCameraList() {
         select.appendChild(option);
     });
     
-    // Auto-select default camera
+    // Auto-select and auto-start default camera
     if (!STATE.selectedDeviceId && cameras.length > 0) {
         const priority = ['integrated', 'physical', 'virtual', 'phone'];
         let defaultCamera = null;
@@ -828,7 +876,11 @@ async function populateCameraList() {
         defaultCamera = defaultCamera || cameras[0];
         select.value = defaultCamera.deviceId;
         STATE.selectedDeviceId = defaultCamera.deviceId;
-        await startCamera(defaultCamera.deviceId);
+        
+        // Auto-start camera by default
+        if (autoStart) {
+            await startCamera(defaultCamera.deviceId);
+        }
     } else if (STATE.selectedDeviceId) {
         select.value = STATE.selectedDeviceId;
     }

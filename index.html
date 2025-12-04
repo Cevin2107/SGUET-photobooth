@@ -25,12 +25,107 @@
 <body>
     <!-- Header -->
     <header class="header">
-        <h1><i class="fas fa-camera"></i> SGUET Photobooth</h1>
-        <p>Chụp ảnh kỷ yếu - Tự động chụp 3 ảnh</p>
+        <h1><img src="SGUET.jpg" alt="SGUET Logo" class="header-logo"> SGUET Photobooth</h1>
     </header>
 
     <div class="container">
-        <!-- Left Panel: Settings -->
+        <!-- Center: Camera View -->
+        <main class="camera-section">
+            <div class="camera-controls-wrapper">
+                <div class="camera-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    
+                    <!-- Flip Button -->
+                    <button id="flipBtn" class="flip-btn hidden" title="Lật camera">
+                        <i class="fas fa-camera-rotate"></i>
+                    </button>
+                    
+                    <!-- Countdown Overlay -->
+                    <div id="countdown" class="countdown-overlay hidden">
+                        <div id="countdownNumber" class="countdown-number">3</div>
+                    </div>
+                </div>
+                
+                <!-- Capture Button (Right Side) -->
+                <div class="side-controls">
+                    <button id="captureBtn" class="btn-circle btn-capture hidden" title="Chụp ảnh">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Controls -->
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">
+                    <i class="fas fa-video"></i> Bật Camera
+                </button>
+                <button id="singleCaptureBtn" class="btn btn-info hidden">
+                    <i class="fas fa-camera"></i> Chụp 1 Ảnh
+                </button>
+                <button id="resetBtn" class="btn btn-warning hidden">
+                    <i class="fas fa-redo"></i> Chụp Lại
+                </button>
+            </div>
+        </main>
+
+        <!-- Right Panel: Photos -->
+        <aside class="photos-panel">
+            <h3>
+                <i class="fas fa-images"></i> Ảnh Đã Chụp 
+                <span id="photoCount" class="photo-count">0/3</span>
+            </h3>
+            <div class="photo-slots">
+                <div class="photo-slot" data-index="0">
+                    <i class="fas fa-image"></i>
+                    <span>Ảnh 1</span>
+                    <button class="upload-photo-btn" data-index="0" title="Tải ảnh lên">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button class="delete-photo-btn hidden" data-index="0">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button class="swap-photo-btn hidden" data-index="0">
+                        <i class="fas fa-arrows-rotate"></i>
+                    </button>
+                    <input type="file" class="photo-upload-input" data-index="0" accept="image/*" style="display: none;">
+                </div>
+                <div class="photo-slot" data-index="1">
+                    <i class="fas fa-image"></i>
+                    <span>Ảnh 2</span>
+                    <button class="upload-photo-btn" data-index="1" title="Tải ảnh lên">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button class="delete-photo-btn hidden" data-index="1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button class="swap-photo-btn hidden" data-index="1">
+                        <i class="fas fa-arrows-rotate"></i>
+                    </button>
+                    <input type="file" class="photo-upload-input" data-index="1" accept="image/*" style="display: none;">
+                </div>
+                <div class="photo-slot" data-index="2">
+                    <i class="fas fa-image"></i>
+                    <span>Ảnh 3</span>
+                    <button class="upload-photo-btn" data-index="2" title="Tải ảnh lên">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button class="delete-photo-btn hidden" data-index="2">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button class="swap-photo-btn hidden" data-index="2">
+                        <i class="fas fa-arrows-rotate"></i>
+                    </button>
+                    <input type="file" class="photo-upload-input" data-index="2" accept="image/*" style="display: none;">
+                </div>
+            </div>
+
+            <button id="selectFrameBtn" class="btn btn-success hidden">
+                <i class="fas fa-images"></i> Chọn Khung Ảnh
+            </button>
+        </aside>
+
+        <!-- Bottom Panel: Settings -->
         <aside class="settings-panel">
             <div class="settings-card">
                 <h3><i class="fas fa-clock"></i> Thời Gian Tự Động Chụp</h3>
@@ -102,96 +197,6 @@
                     <i class="fas fa-rotate"></i> Làm mới
                 </button>
             </div>
-        </aside>
-
-        <!-- Center: Camera View -->
-        <main class="camera-section">
-            <div class="camera-container">
-                <video id="video" autoplay playsinline></video>
-                <canvas id="canvas" style="display: none;"></canvas>
-                
-                <!-- Flip Button -->
-                <button id="flipBtn" class="flip-btn hidden" title="Lật camera">
-                    <i class="fas fa-camera-rotate"></i>
-                </button>
-                
-                <!-- Countdown Overlay -->
-                <div id="countdown" class="countdown-overlay hidden">
-                    <div id="countdownNumber" class="countdown-number">3</div>
-                </div>
-            </div>
-
-            <!-- Controls -->
-            <div class="controls">
-                <button id="startBtn" class="btn btn-primary">
-                    <i class="fas fa-video"></i> Bật Camera
-                </button>
-                <button id="captureBtn" class="btn-circle btn-capture hidden" title="Chụp ảnh">
-                    <i class="fas fa-camera"></i>
-                </button>
-                <button id="singleCaptureBtn" class="btn btn-info hidden">
-                    <i class="fas fa-camera"></i> Chụp 1 Ảnh
-                </button>
-                <button id="resetBtn" class="btn btn-warning hidden">
-                    <i class="fas fa-redo"></i> Chụp Lại
-                </button>
-            </div>
-        </main>
-
-        <!-- Right Panel: Photos -->
-        <aside class="photos-panel">
-            <h3>
-                <i class="fas fa-images"></i> Ảnh Đã Chụp 
-                <span id="photoCount" class="photo-count">0/3</span>
-            </h3>
-            <div class="photo-slots">
-                <div class="photo-slot" data-index="0">
-                    <i class="fas fa-image"></i>
-                    <span>Ảnh 1</span>
-                    <button class="upload-photo-btn" data-index="0" title="Tải ảnh lên">
-                        <i class="fas fa-upload"></i>
-                    </button>
-                    <button class="delete-photo-btn hidden" data-index="0">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <button class="swap-photo-btn hidden" data-index="0">
-                        <i class="fas fa-arrows-rotate"></i>
-                    </button>
-                    <input type="file" class="photo-upload-input" data-index="0" accept="image/*" style="display: none;">
-                </div>
-                <div class="photo-slot" data-index="1">
-                    <i class="fas fa-image"></i>
-                    <span>Ảnh 2</span>
-                    <button class="upload-photo-btn" data-index="1" title="Tải ảnh lên">
-                        <i class="fas fa-upload"></i>
-                    </button>
-                    <button class="delete-photo-btn hidden" data-index="1">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <button class="swap-photo-btn hidden" data-index="1">
-                        <i class="fas fa-arrows-rotate"></i>
-                    </button>
-                    <input type="file" class="photo-upload-input" data-index="1" accept="image/*" style="display: none;">
-                </div>
-                <div class="photo-slot" data-index="2">
-                    <i class="fas fa-image"></i>
-                    <span>Ảnh 3</span>
-                    <button class="upload-photo-btn" data-index="2" title="Tải ảnh lên">
-                        <i class="fas fa-upload"></i>
-                    </button>
-                    <button class="delete-photo-btn hidden" data-index="2">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <button class="swap-photo-btn hidden" data-index="2">
-                        <i class="fas fa-arrows-rotate"></i>
-                    </button>
-                    <input type="file" class="photo-upload-input" data-index="2" accept="image/*" style="display: none;">
-                </div>
-            </div>
-
-            <button id="selectFrameBtn" class="btn btn-success hidden">
-                <i class="fas fa-images"></i> Chọn Khung Ảnh
-            </button>
         </aside>
     </div>
 
