@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sguet-photobooth-v2';
+const CACHE_NAME = 'sguet-photobooth-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -13,8 +13,9 @@ const urlsToCache = [
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
-// Install event
+// Install event - force immediate activation
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force new service worker to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -55,7 +56,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Activate event
+// Activate event - take control immediately
 self.addEventListener('activate', (event) => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -63,10 +64,14 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Take control of all clients immediately
+      return self.clients.claim();
     })
   );
 });
