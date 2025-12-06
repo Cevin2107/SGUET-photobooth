@@ -48,6 +48,29 @@ const SAMPLE_FRAME_POSITIONS = {
         "centerX": false
       }
     ]
+  },
+  "Frame3.png": {
+    "photoSize": {
+      "width": 789,
+      "height": 489
+    },
+    "positions": [
+      {
+        "x": 46,
+        "y": 715,
+        "centerX": false
+      },
+      {
+        "x": 47,
+        "y": 1327,
+        "centerX": false
+      },
+      {
+        "x": 46,
+        "y": 1940,
+        "centerX": false
+      }
+    ]
   }
 };
 

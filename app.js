@@ -64,6 +64,29 @@ let FRAME_POSITIONS = {
         "centerX": false
       }
     ]
+  },
+  "./Frames/Frame3.png": {
+    "photoSize": {
+      "width": 789,
+      "height": 489
+    },
+    "positions": [
+      {
+        "x": 46,
+        "y": 715,
+        "centerX": false
+      },
+      {
+        "x": 47,
+        "y": 1327,
+        "centerX": false
+      },
+      {
+        "x": 46,
+        "y": 1940,
+        "centerX": false
+      }
+    ]
   }
 };
 
@@ -465,7 +488,8 @@ let currentPreviewFrame = null;
 function loadFrames() {
     const frames = [
         { name: 'Frame 1', path: './Frames/Frame1.png' },
-        { name: 'Frame 2', path: './Frames/Frame2.png' }
+        { name: 'Frame 2', path: './Frames/Frame2.png' },
+        { name: 'Frame 3', path: './Frames/Frame3.png' }
     ];
     
     frameGrid.innerHTML = '';
