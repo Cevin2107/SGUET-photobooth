@@ -2,7 +2,7 @@
 const STATE = {
     stream: null,
     photos: [null, null, null],
-    currentFilter: 'none',
+    beautyMode: true,
     countdownTime: 3,
     isCapturing: false,
     isFlipped: true,
@@ -11,56 +11,51 @@ const STATE = {
     selectedDeviceId: null
 };
 
-const FILTERS = {
-    none: '',
-    grayscale: 'grayscale(100%)',
-    sepia: 'sepia(100%)',
-    warm: 'sepia(30%) saturate(1.4) brightness(1.1)'
-};
+
 
 let FRAME_POSITIONS = {
   "./Frames/Frame1.png": {
     "photoSize": {
-      "width": 789,
-      "height": 584
+      "width": 780,
+      "height": 575
     },
     "positions": [
       {
-        "x": 92,
-        "y": 670,
+        "x": 48,
+        "y": 668,
         "centerX": false
       },
       {
-        "x": 47,
-        "y": 1279,
+        "x": 48,
+        "y": 1281,
         "centerX": false
       },
       {
-        "x": 45,
-        "y": 1891,
+        "x": 52,
+        "y": 1900,
         "centerX": false
       }
     ]
   },
   "./Frames/Frame2.png": {
     "photoSize": {
-      "width": 782,
-      "height": 576
+      "width": 780,
+      "height": 562
     },
     "positions": [
       {
-        "x": 49,
-        "y": 670,
+        "x": 48,
+        "y": 681,
         "centerX": false
       },
       {
-        "x": 51,
-        "y": 1283,
+        "x": 48,
+        "y": 1291,
         "centerX": false
       },
       {
-        "x": 49,
-        "y": 1895,
+        "x": 52,
+        "y": 1900,
         "centerX": false
       }
     ]
@@ -135,7 +130,7 @@ if ('serviceWorker' in navigator) {
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
     initTimerButtons();
-    initFilterButtons();
+    initBeautyToggle();
     initEventListeners();
     initPhotoSlotButtons();
     initUploadButtons();
@@ -184,18 +179,136 @@ function initTimerButtons() {
     });
 }
 
-// ===== FILTER BUTTONS =====
-function initFilterButtons() {
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            STATE.currentFilter = btn.dataset.filter;
-            video.style.filter = FILTERS[STATE.currentFilter];
-        });
+// ===== BEAUTY FILTER TOGGLE =====
+function initBeautyToggle() {
+    const beautyOnBtn = document.getElementById('beautyOnBtn');
+    const beautyOffBtn = document.getElementById('beautyOffBtn');
+    
+    if (!beautyOnBtn || !beautyOffBtn) return;
+    
+    beautyOnBtn.addEventListener('click', () => {
+        STATE.beautyMode = true;
+        beautyOnBtn.classList.add('active');
+        beautyOffBtn.classList.remove('active');
+        applyVideoFilter(); // Apply filter to live video
+    });
+    
+    beautyOffBtn.addEventListener('click', () => {
+        STATE.beautyMode = false;
+        beautyOffBtn.classList.add('active');
+        beautyOnBtn.classList.remove('active');
+        applyVideoFilter(); // Remove filter from live video
     });
 }
+
+// Apply beauty filter to live video preview
+function applyVideoFilter() {
+    if (!video) return;
+    
+    if (STATE.beautyMode) {
+        // Apply CSS filters for real-time beauty effect (subtle glow)
+        video.style.filter = 'brightness(1.08) contrast(0.97) saturate(1.08)';
+    } else {
+        video.style.filter = '';
+    }
+}
+
+// ===== BEAUTY FILTER (SKIN DETECTION & SMOOTHING) =====
+function applyBeautyFilter(ctx, width, height) {
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    // Create skin mask
+    const skinMask = new Uint8Array(width * height);
+    
+    // Detect skin pixels
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const idx = i / 4;
+        
+        // Skin detection algorithm (improved)
+        const isSkin = (
+            r > 95 && g > 40 && b > 20 &&
+            r > g && r > b &&
+            Math.abs(r - g) > 15 &&
+            (r - g) > 15 &&
+            (r - b) > 15 &&
+            r < 250 // Avoid white
+        );
+        
+        skinMask[idx] = isSkin ? 1 : 0;
+    }
+    
+    // Apply gentle selective blur only to skin (radius 1 for subtle effect)
+    const blurredData = selectiveBlur(imageData, skinMask, width, height, 1);
+    
+    // Blend and enhance
+    for (let i = 0; i < data.length; i += 4) {
+        const idx = i / 4;
+        
+        if (skinMask[idx]) {
+            // Gentle blend (50% for subtle smoothing without losing detail)
+            data[i] = data[i] * 0.5 + blurredData[i] * 0.5;
+            data[i + 1] = data[i + 1] * 0.5 + blurredData[i + 1] * 0.5;
+            data[i + 2] = data[i + 2] * 0.5 + blurredData[i + 2] * 0.5;
+            
+            // Brighten skin more for glowing effect
+            data[i] = Math.min(255, data[i] * 1.10);
+            data[i + 1] = Math.min(255, data[i + 1] * 1.08);
+            data[i + 2] = Math.min(255, data[i + 2] * 1.06);
+            
+            // Add peachy tone for healthy glow
+            data[i] = Math.min(255, data[i] + 5);
+            data[i + 1] = Math.min(255, data[i + 1] + 3);
+        }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+}
+
+// Selective blur only on masked areas
+function selectiveBlur(imageData, mask, width, height, radius) {
+    const data = imageData.data;
+    const output = new Uint8ClampedArray(data.length);
+    output.set(data); // Copy original
+    
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            
+            // Only blur masked pixels (skin)
+            if (mask[idx]) {
+                let r = 0, g = 0, b = 0, count = 0;
+                
+                for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nidx = (ny * width + nx) * 4;
+                            r += data[nidx];
+                            g += data[nidx + 1];
+                            b += data[nidx + 2];
+                            count++;
+                        }
+                    }
+                }
+                
+                const pixelIdx = idx * 4;
+                output[pixelIdx] = r / count;
+                output[pixelIdx + 1] = g / count;
+                output[pixelIdx + 2] = b / count;
+            }
+        }
+    }
+    
+    return output;
+}
+
+
 
 // ===== EVENT LISTENERS =====
 function initEventListeners() {
@@ -272,6 +385,9 @@ async function startCamera(deviceId = null) {
                 resolve();
             };
         });
+        
+        // Apply beauty filter if enabled
+        applyVideoFilter();
         
         startBtn.classList.add('hidden');
         captureBtn.classList.remove('hidden');
@@ -369,9 +485,6 @@ async function doCountdown() {
 }
 
 async function capturePhoto(index) {
-    // Apply filter
-    ctx.filter = FILTERS[STATE.currentFilter];
-    
     // Draw video to canvas
     ctx.save();
     
@@ -384,7 +497,11 @@ async function capturePhoto(index) {
     
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
-    ctx.filter = 'none';
+    
+    // Apply beauty filter if enabled
+    if (STATE.beautyMode) {
+        applyBeautyFilter(ctx, canvas.width, canvas.height);
+    }
     
     // Save photo
     STATE.photos[index] = canvas.toDataURL('image/png');

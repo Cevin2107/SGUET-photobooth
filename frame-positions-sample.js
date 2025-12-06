@@ -3,7 +3,7 @@
 
 // Ví dụ cấu hình cho Frame1.png và Frame2.png
 const SAMPLE_FRAME_POSITIONS = {
-  "Frame1.png": {
+"Frame1.png": {
     "photoSize": {
       "width": 789,
       "height": 584
