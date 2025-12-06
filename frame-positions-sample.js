@@ -5,47 +5,47 @@
 const SAMPLE_FRAME_POSITIONS = {
   "Frame1.png": {
     "photoSize": {
-      "width": 400,
-      "height": 300
+      "width": 789,
+      "height": 584
     },
     "positions": [
       {
-        "x": 50,
-        "y": 100,
+        "x": 46,
+        "y": 667,
         "centerX": false
       },
       {
-        "x": 50,
-        "y": 450,
+        "x": 46,
+        "y": 1279,
         "centerX": false
       },
       {
-        "x": 50,
-        "y": 800,
+        "x": 46,
+        "y": 1892,
         "centerX": false
       }
     ]
   },
   "Frame2.png": {
     "photoSize": {
-      "width": 380,
-      "height": 285
+      "width": 780,
+      "height": 562
     },
     "positions": [
       {
-        "x": 60,
-        "y": 120,
-        "centerX": true
+        "x": 48,
+        "y": 681,
+        "centerX": false
       },
       {
-        "x": 60,
-        "y": 470,
-        "centerX": true
+        "x": 48,
+        "y": 1291,
+        "centerX": false
       },
       {
-        "x": 60,
-        "y": 820,
-        "centerX": true
+        "x": 52,
+        "y": 1900,
+        "centerX": false
       }
     ]
   }
